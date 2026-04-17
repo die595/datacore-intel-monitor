@@ -1,28 +1,25 @@
 "use client";
 import { useState, useMemo, useEffect } from 'react';
 import dynamic from 'next/dynamic';
-// Corregido: UploadCloud unido para evitar error de sintaxis
-import { Filter, BookOpen, List, Trash2, UploadCloud } from 'lucide-react';
+import { BookOpen, List, Trash2, UploadCloud } from 'lucide-react';
 
 // Importamos el cargador de archivos original
-import FileUploader from './components/upload/FileUploader';
-
+import FileUploader, { EventoSeguridad } from './components/upload/FileUploader';
 // Importación dinámica de componentes pesados para estabilidad en Netlify
 const SecurityMap = dynamic(() => import('./components/dashboard/Map'), { 
   ssr: false,
   loading: () => <div className="h-full w-full bg-slate-900 flex items-center justify-center text-blue-500 font-mono text-xs">INICIALIZANDO MAPA...</div>
-}) as any;
+});
 
 const Analytics = dynamic(() => import('./components/dashboard/Analytics'), { 
   ssr: false,
   loading: () => <div className="h-full w-full bg-slate-900 flex items-center justify-center text-slate-500 font-mono text-xs">CARGANDO ANALÍTICAS...</div>
-}) as any;
+});
 
 export default function Home() {
   const [mounted, setMounted] = useState(false);
-  const [eventos, setEventos] = useState<any[]>([]);
+  const [eventos, setEventos] = useState<EventoSeguridad[]>([]);
   const [municipio, setMunicipio] = useState('');
-
   // 1. Montaje seguro: Carga datos de localStorage al iniciar
   useEffect(() => {
     setMounted(true);
