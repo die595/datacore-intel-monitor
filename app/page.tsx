@@ -7,6 +7,7 @@ import { Filter, MapPin, BookOpen, Calendar, List, Lock, Trash2 } from 'lucide-r
 import Slider from 'rc-slider';
 import 'rc-slider/assets/index.css';
 
+// Importación dinámica para evitar errores de SSR en Netlify
 const SecurityMap = dynamic(() => import('./components/dashboard/Map'), { 
   ssr: false,
   loading: () => <div className="h-full w-full bg-slate-900 animate-pulse flex items-center justify-center text-blue-500 font-mono text-[10px]">CARGANDO SISTEMA GEOGRÁFICO...</div>
@@ -19,30 +20,39 @@ export default function Home() {
   const [municipio, setMunicipio] = useState('');
   const [delito, setDelito] = useState('');
 
-  // --- PERSISTENCIA DE DATOS (LocalStorage) ---
-  // 1. Cargar datos al iniciar
+  // --- PERSISTENCIA DE DATOS (LocalStorage con Verificación de Cliente) ---
+  
+  // 1. Cargar datos al montar el componente (Solo en el cliente)
   useEffect(() => {
-    const datosGuardados = localStorage.getItem('datacore_data');
-    if (datosGuardados) {
-      try {
-        setEventos(JSON.parse(datosGuardados));
-      } catch (e) {
-        console.error("Error cargando caché", e);
+    if (typeof window !== "undefined") {
+      const datosGuardados = localStorage.getItem('datacore_data');
+      if (datosGuardados) {
+        try {
+          const parsed = JSON.parse(datosGuardados);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setEventos(parsed);
+          }
+        } catch (e) {
+          console.error("Error al recuperar caché:", e);
+          localStorage.removeItem('datacore_data');
+        }
       }
     }
   }, []);
 
-  // 2. Guardar datos cuando 'eventos' cambie
+  // 2. Guardar datos cuando cambien los eventos
   useEffect(() => {
-    if (eventos.length > 0) {
+    if (typeof window !== "undefined" && eventos.length > 0) {
       localStorage.setItem('datacore_data', JSON.stringify(eventos));
     }
   }, [eventos]);
 
-  // 3. Función para limpiar datos (Si quieres cargar un CSV nuevo)
+  // 3. Función para limpiar base de datos
   const limpiarDatos = () => {
     if(confirm("¿Desea eliminar los datos actuales para cargar un nuevo reporte?")) {
-      localStorage.removeItem('datacore_data');
+      if (typeof window !== "undefined") {
+        localStorage.removeItem('datacore_data');
+      }
       setEventos([]);
     }
   };
@@ -74,9 +84,10 @@ export default function Home() {
   const municipiosUnicos = [...new Set(eventos.map(e => e.municipio))].sort();
   const delitosUnicos = [...new Set(eventos.map(e => e.delito))].sort();
 
+  // Pantalla de Autenticación
   if (!isAuthenticated) {
     return (
-      <div className="h-screen bg-[#020617] flex flex-col items-center justify-center p-4 font-sans">
+      <div className="h-screen bg-[#020617] flex flex-col items-center justify-center p-4 font-sans text-slate-200">
         <div className="bg-[#0f172a] p-8 rounded-2xl border border-slate-800 shadow-2xl w-full max-w-md border-t-4 border-t-blue-600">
           <div className="flex justify-center mb-6">
             <div className="bg-blue-500/10 p-4 rounded-full border border-blue-500/20">
@@ -93,7 +104,7 @@ export default function Home() {
               onChange={(e) => setPassword(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && checkPassword()}
             />
-            <button onClick={checkPassword} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-3 rounded transition-all uppercase text-xs tracking-widest shadow-lg shadow-blue-900/20">
+            <button onClick={checkPassword} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-3 rounded transition-all uppercase text-xs tracking-widest">
               Autenticar Sistema
             </button>
           </div>
@@ -102,6 +113,7 @@ export default function Home() {
     );
   }
 
+  // Dashboard Principal
   return (
     <main className="h-screen bg-[#020617] text-slate-200 p-3 overflow-hidden flex flex-col font-sans">
       <header className="flex justify-between items-center h-[5vh] border-b border-slate-800 mb-2 px-2">
