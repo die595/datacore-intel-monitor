@@ -2,7 +2,7 @@
 import { useState, useMemo } from 'react';
 import FileUploader, { EventoSeguridad } from './components/upload/FileUploader'; 
 import Analytics from './components/dashboard/Analytics';
-import SecurityMap from './components/dashboard/Map';
+import dynamic from 'next/dynamic';
 import { Filter, MapPin, BookOpen, Calendar, List } from 'lucide-react';
 import Slider from 'rc-slider';
 import 'rc-slider/assets/index.css';
@@ -11,6 +11,11 @@ export default function Home() {
   const [eventos, setEventos] = useState<EventoSeguridad[]>([]);
   const [municipio, setMunicipio] = useState('');
   const [delito, setDelito] = useState('');
+
+  const SecurityMap = dynamic(() => import('./components/dashboard/Map'), { 
+  ssr: false,
+  loading: () => <div className="h-full w-full bg-slate-900 animate-pulse flex items-center justify-center text-blue-500 font-mono text-[10px]">CARGANDO SISTEMA GEOGRÁFICO...</div>
+});
 
   const minTime = new Date('2016-12-01').getTime();
   const maxTime = new Date('2026-03-07').getTime();
