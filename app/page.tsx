@@ -3,24 +3,41 @@ import { useState, useMemo } from 'react';
 import FileUploader, { EventoSeguridad } from './components/upload/FileUploader'; 
 import Analytics from './components/dashboard/Analytics';
 import dynamic from 'next/dynamic';
-import { Filter, MapPin, BookOpen, Calendar, List } from 'lucide-react';
+import { Filter, MapPin, BookOpen, Calendar, List, Lock } from 'lucide-react';
 import Slider from 'rc-slider';
 import 'rc-slider/assets/index.css';
 
-export default function Home() {
-  const [eventos, setEventos] = useState<EventoSeguridad[]>([]);
-  const [municipio, setMunicipio] = useState('');
-  const [delito, setDelito] = useState('');
-
-  const SecurityMap = dynamic(() => import('./components/dashboard/Map'), { 
+// Importación dinámica del mapa para evitar errores en Netlify
+const SecurityMap = dynamic(() => import('./components/dashboard/Map'), { 
   ssr: false,
   loading: () => <div className="h-full w-full bg-slate-900 animate-pulse flex items-center justify-center text-blue-500 font-mono text-[10px]">CARGANDO SISTEMA GEOGRÁFICO...</div>
 });
+
+export default function Home() {
+  // --- ESTADOS DE AUTENTICACIÓN ---
+  const [password, setPassword] = useState("");
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  // --- ESTADOS DEL DASHBOARD ---
+  const [eventos, setEventos] = useState<EventoSeguridad[]>([]);
+  const [municipio, setMunicipio] = useState('');
+  const [delito, setDelito] = useState('');
 
   const minTime = new Date('2016-12-01').getTime();
   const maxTime = new Date('2026-03-07').getTime();
   const [rangoTemporal, setRangoTemporal] = useState<[number, number]>([minTime, maxTime]);
 
+  // --- LÓGICA DE SEGURIDAD ---
+  const checkPassword = () => {
+    // CAMBIA AQUÍ TU CONTRASEÑA
+    if (password === "Delta2026") {
+      setIsAuthenticated(true);
+    } else {
+      alert("CREDENCIAL NO VÁLIDA - ACCESO DENEGADO");
+    }
+  };
+
+  // --- LÓGICA DE DATOS ---
   const toISODate = (time: number) => new Date(time).toISOString().split('T')[0];
 
   const eventosFiltrados = useMemo(() => {
@@ -36,6 +53,47 @@ export default function Home() {
   const municipiosUnicos = [...new Set(eventos.map(e => e.municipio))].sort();
   const delitosUnicos = [...new Set(eventos.map(e => e.delito))].sort();
 
+  // --- RENDERIZADO: PANTALLA DE BLOQUEO ---
+  if (!isAuthenticated) {
+    return (
+      <div className="h-screen bg-[#020617] flex flex-col items-center justify-center p-4 font-sans">
+        <div className="bg-[#0f172a] p-8 rounded-2xl border border-slate-800 shadow-2xl w-full max-w-md border-t-4 border-t-blue-600">
+          <div className="flex justify-center mb-6">
+            <div className="bg-blue-500/10 p-4 rounded-full border border-blue-500/20">
+              <Lock className="text-blue-500" size={32} />
+            </div>
+          </div>
+          <h2 className="text-white font-black uppercase tracking-[0.2em] text-center mb-2 text-xl">Datacore Intel</h2>
+          <p className="text-slate-500 text-[10px] text-center uppercase font-bold mb-8 tracking-widest">Sistema de Análisis Estratégico</p>
+          
+          <div className="space-y-4">
+            <div>
+              <label className="text-[9px] text-slate-500 font-bold uppercase mb-2 block ml-1">Credencial Operativa</label>
+              <input 
+                type="password" 
+                placeholder="••••••••••••"
+                className="w-full bg-[#020617] border border-slate-700 p-3 rounded text-white outline-none focus:border-blue-500 transition-all text-center tracking-widest"
+                onChange={(e) => setPassword(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && checkPassword()}
+              />
+            </div>
+            <button 
+              onClick={checkPassword}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-3 rounded transition-all uppercase text-xs tracking-widest shadow-lg shadow-blue-900/20"
+            >
+              Autenticar Sistema
+            </button>
+          </div>
+          
+          <p className="text-[8px] text-slate-600 text-center mt-8 uppercase font-bold tracking-tighter">
+            Acceso restringido a personal autorizado únicamente
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // --- RENDERIZADO: DASHBOARD PRINCIPAL ---
   return (
     <main className="h-screen bg-[#020617] text-slate-200 p-3 overflow-hidden flex flex-col font-sans">
       <header className="flex justify-between items-center h-[5vh] border-b border-slate-800 mb-2 px-2">
@@ -49,7 +107,9 @@ export default function Home() {
       </header>
 
       {eventos.length === 0 ? (
-        <div className="flex-1 flex items-center justify-center"><FileUploader onDataLoaded={setEventos} /></div>
+        <div className="flex-1 flex items-center justify-center">
+          <FileUploader onDataLoaded={setEventos} />
+        </div>
       ) : (
         <div className="flex-1 grid grid-cols-12 gap-3 min-h-0">
           
@@ -78,7 +138,7 @@ export default function Home() {
               </div>
             </div>
 
-            {/* LOG DE OPERACIONES (Ocupando el espacio lateral) */}
+            {/* LOG DE OPERACIONES */}
             <div className="flex-1 bg-[#0f172a] border border-slate-800 rounded-xl overflow-hidden flex flex-col shadow-xl min-h-0">
               <div className="bg-slate-900/80 p-2 border-b border-slate-800 flex items-center gap-2">
                 <List size={12} className="text-blue-500" />
@@ -96,7 +156,7 @@ export default function Home() {
             </div>
           </aside>
 
-          {/* COLUMNA DERECHA: MAPA (Superior) + ANALYTICS DIVIDIDO (Inferior) */}
+          {/* COLUMNA DERECHA: MAPA + ANALYTICS */}
           <div className="col-span-9 grid grid-rows-12 gap-3 min-h-0">
             <div className="row-span-6 bg-[#0f172a] border border-slate-800 rounded-xl overflow-hidden relative shadow-2xl">
               <div className="absolute top-2 left-2 z-[1000] bg-slate-900/90 backdrop-blur-sm p-1.5 rounded border border-slate-700">
@@ -107,7 +167,6 @@ export default function Home() {
               <SecurityMap datos={eventosFiltrados} />
             </div>
 
-            {/* Analytics dividido internamente */}
             <div className="row-span-6 bg-[#0f172a] border border-slate-800 rounded-xl p-3 shadow-xl overflow-hidden">
               <Analytics datos={eventosFiltrados} />
             </div>
