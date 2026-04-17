@@ -24,14 +24,14 @@ export default function Home() {
   // 1. Efecto de Montaje Inicial: Evita errores de Hidratación en Netlify
   useEffect(() => {
     setHasMounted(true);
-    const datosGuardados = localStorage.getItem('datacore_data');
-    if (datosGuardados) {
-      try {
+    try {
+      const datosGuardados = window.localStorage.getItem('datacore_data');
+      if (datosGuardados) {
         const parsed = JSON.parse(datosGuardados);
-        if (Array.isArray(parsed)) setEventos(parsed);
-      } catch (e) {
-        console.error("Error recuperando caché", e);
+        setEventos(Array.isArray(parsed) ? parsed : []);
       }
+    } catch (e) {
+      console.error("Error en persistencia:", e);
     }
   }, []);
 
