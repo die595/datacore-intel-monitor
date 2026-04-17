@@ -1,130 +1,115 @@
 "use client";
-import { useState, useMemo, useEffect } from 'react';
-import dynamic from 'next/dynamic';
-import { BookOpen, List, Trash2, UploadCloud } from 'lucide-react';
-
-// Importamos el cargador de archivos original
-import FileUploader, { EventoSeguridad } from './components/upload/FileUploader';
-// Importación dinámica de componentes pesados para estabilidad en Netlify
-const SecurityMap = dynamic(() => import('./components/dashboard/Map'), { 
-  ssr: false,
-  loading: () => <div className="h-full w-full bg-slate-900 flex items-center justify-center text-blue-500 font-mono text-xs">INICIALIZANDO MAPA...</div>
-});
-
-const Analytics = dynamic(() => import('./components/dashboard/Analytics'), { 
-  ssr: false,
-  loading: () => <div className="h-full w-full bg-slate-900 flex items-center justify-center text-slate-500 font-mono text-xs">CARGANDO ANALÍTICAS...</div>
-});
+import { useState, useMemo } from 'react';
+import FileUploader, { EventoSeguridad } from './components/upload/FileUploader'; 
+import Analytics from './components/dashboard/Analytics';
+import SecurityMap from './components/dashboard/Map';
+import { Filter, MapPin, BookOpen, Calendar, List } from 'lucide-react';
+import Slider from 'rc-slider';
+import 'rc-slider/assets/index.css';
 
 export default function Home() {
-  const [mounted, setMounted] = useState(false);
   const [eventos, setEventos] = useState<EventoSeguridad[]>([]);
   const [municipio, setMunicipio] = useState('');
-  // 1. Montaje seguro: Carga datos de localStorage al iniciar
-  useEffect(() => {
-    setMounted(true);
-    const cached = localStorage.getItem('datacore_data');
-    if (cached) {
-      try {
-        const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed)) setEventos(parsed);
-      } catch (e) {
-        console.error("Error recuperando persistencia:", e);
-      }
-    }
-  }, []);
+  const [delito, setDelito] = useState('');
 
-  // 2. Persistencia: Guarda automáticamente cuando subes el CSV
-  useEffect(() => {
-    if (mounted && eventos.length > 0) {
-      localStorage.setItem('datacore_data', JSON.stringify(eventos));
-    }
-  }, [eventos, mounted]);
+  const minTime = new Date('2016-12-01').getTime();
+  const maxTime = new Date('2026-03-07').getTime();
+  const [rangoTemporal, setRangoTemporal] = useState<[number, number]>([minTime, maxTime]);
 
-  // Filtrado lógico
+  const toISODate = (time: number) => new Date(time).toISOString().split('T')[0];
+
   const eventosFiltrados = useMemo(() => {
-    return municipio ? eventos.filter((e: any) => e.municipio === municipio) : eventos;
-  }, [eventos, municipio]);
+    return eventos.filter(e => {
+      const matchMuni = !municipio || e.municipio === municipio;
+      const matchDelito = !delito || e.delito === delito;
+      const fechaE = new Date(e.fecha).getTime();
+      const matchDate = isNaN(fechaE) ? true : (fechaE >= rangoTemporal[0] && fechaE <= rangoTemporal[1]);
+      return matchMuni && matchDelito && matchDate;
+    });
+  }, [eventos, municipio, delito, rangoTemporal]);
 
-  // Evita el error de "Hydration" (pantalla negra)
-  if (!mounted) return <div className="h-screen bg-[#020617]" />;
+  const municipiosUnicos = [...new Set(eventos.map(e => e.municipio))].sort();
+  const delitosUnicos = [...new Set(eventos.map(e => e.delito))].sort();
 
   return (
     <main className="h-screen bg-[#020617] text-slate-200 p-3 overflow-hidden flex flex-col font-sans">
-      {/* Header Simplificado */}
-      <header className="flex justify-between items-center h-[6vh] border-b border-slate-800 mb-2 px-4">
+      <header className="flex justify-between items-center h-[5vh] border-b border-slate-800 mb-2 px-2">
         <div className="flex items-center gap-2">
-          <BookOpen size={20} className="text-blue-500" />
-          <h1 className="text-lg font-black text-white uppercase italic tracking-tighter">DATACORE INTEL</h1>
+          <BookOpen className="text-blue-500" size={20} />
+          <h1 className="text-lg font-black tracking-tighter text-white uppercase">Datacore Intel</h1>
         </div>
-        
-        <div className="flex items-center gap-4">
-          {eventos.length > 0 && (
-            <button 
-              onClick={() => { if(confirm("¿Limpiar base de datos?")) { localStorage.removeItem('datacore_data'); setEventos([]); } }} 
-              className="text-[10px] bg-red-500/10 text-red-400 px-3 py-1 rounded border border-red-500/20 font-bold uppercase hover:bg-red-500/20 transition-all"
-            >
-              <Trash2 size={12} className="inline mr-1"/> Limpiar
-            </button>
-          )}
-          <div className="text-[10px] font-mono font-bold text-blue-400 bg-blue-500/10 px-3 py-1 rounded border border-blue-500/20 uppercase">
-            {eventosFiltrados.length} REGISTROS
-          </div>
+        <div className="text-[10px] font-bold text-blue-400 bg-blue-500/10 px-3 py-1 rounded border border-blue-500/20 uppercase">
+          {eventosFiltrados.length} Registros Activos
         </div>
       </header>
 
-      {/* Cuerpo Principal */}
       {eventos.length === 0 ? (
-        <div className="flex-1 flex flex-col items-center justify-center">
-           <div className="w-full max-w-md p-8 border-2 border-dashed border-slate-800 rounded-3xl bg-[#0f172a]/30 text-center">
-              <UploadCloud size={48} className="mx-auto text-slate-700 mb-4" />
-              <FileUploader onDataLoaded={setEventos} />
-           </div>
-        </div>
+        <div className="flex-1 flex items-center justify-center"><FileUploader onDataLoaded={setEventos} /></div>
       ) : (
         <div className="flex-1 grid grid-cols-12 gap-3 min-h-0">
-          {/* Panel Lateral de Control */}
+          
+          {/* COLUMNA IZQUIERDA: CONTROL + LOG */}
           <aside className="col-span-3 flex flex-col gap-3 min-h-0">
-            <div className="bg-[#0f172a] border border-slate-800 p-4 rounded-2xl">
-              <label className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-2 block italic">Filtro Territorial</label>
-              <select 
-                onChange={e => setMunicipio(e.target.value)} 
-                className="w-full bg-[#020617] border border-slate-700 p-2 rounded-lg text-xs text-slate-300 outline-none focus:border-blue-500 transition-all"
-              >
-                <option value="">TODOS LOS MUNICIPIOS</option>
-                {[...new Set(eventos.map((e: any) => e.municipio))].sort().map((m: any) => (
-                  <option key={m} value={m}>{m}</option>
-                ))}
-              </select>
+            <div className="bg-[#0f172a] border border-slate-800 p-3 rounded-xl shadow-lg">
+              <h3 className="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-3 flex items-center gap-2 italic"><Filter size={12}/> Filtros Tácticos</h3>
+              <div className="space-y-2">
+                <select onChange={e => setMunicipio(e.target.value)} className="w-full bg-[#020617] border border-slate-700 p-1.5 rounded text-[10px] text-slate-300 outline-none focus:border-blue-500">
+                  <option value="">TODOS LOS MUNICIPIOS</option>
+                  {municipiosUnicos.map(m => <option key={m} value={m}>{m}</option>)}
+                </select>
+                <select onChange={e => setDelito(e.target.value)} className="w-full bg-[#020617] border border-slate-700 p-1.5 rounded text-[10px] text-slate-300 outline-none focus:border-blue-500">
+                  <option value="">TODAS LAS TIPOLOGÍAS</option>
+                  {delitosUnicos.map(d => <option key={d} value={d}>{d}</option>)}
+                </select>
+              </div>
             </div>
 
-            <div className="flex-1 bg-[#0f172a] border border-slate-800 rounded-2xl overflow-hidden flex flex-col min-h-0 shadow-2xl">
-              <div className="bg-slate-900/80 p-3 border-b border-slate-800 text-[10px] font-black uppercase text-slate-400 font-mono flex items-center gap-2">
-                <List size={12} className="text-blue-500" /> Log Operativo
+            <div className="bg-[#0f172a] border border-slate-800 p-3 rounded-xl shadow-lg">
+              <h3 className="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-2 flex items-center gap-2 italic"><Calendar size={12}/> Temporalidad</h3>
+              <Slider range min={minTime} max={maxTime} value={rangoTemporal} onChange={val => setRangoTemporal(val as [number, number])} trackStyle={[{backgroundColor: '#3b82f6'}]} handleStyle={[{backgroundColor: '#3b82f6', border:'none'}]} />
+              <div className="flex justify-between mt-1 text-[8px] text-slate-500 font-bold uppercase">
+                <span>{toISODate(rangoTemporal[0])}</span>
+                <span>{toISODate(rangoTemporal[1])}</span>
               </div>
-              <div className="flex-1 overflow-auto p-3 space-y-2 custom-scrollbar">
-                {eventosFiltrados.slice(0, 50).map((e: any, i: number) => (
-                  <div key={i} className="p-2 bg-[#020617]/50 rounded border border-slate-800/50">
-                    <p className="text-blue-500 text-[9px] font-mono">{e.fecha}</p>
-                    <p className="text-[10px] font-bold uppercase text-slate-200">{e.delito}</p>
+            </div>
+
+            {/* LOG DE OPERACIONES (Ocupando el espacio lateral) */}
+            <div className="flex-1 bg-[#0f172a] border border-slate-800 rounded-xl overflow-hidden flex flex-col shadow-xl min-h-0">
+              <div className="bg-slate-900/80 p-2 border-b border-slate-800 flex items-center gap-2">
+                <List size={12} className="text-blue-500" />
+                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 font-mono">Log Operativo</span>
+              </div>
+              <div className="flex-1 overflow-auto custom-scrollbar">
+                {eventosFiltrados.map((e, i) => (
+                  <div key={i} className="p-2 border-b border-slate-800/50 hover:bg-blue-500/5 transition-all group">
+                    <p className="text-blue-400 text-[8px] font-mono mb-1">{e.fecha}</p>
+                    <p className="text-[9px] font-black text-slate-200 uppercase leading-none group-hover:text-blue-300">{e.delito}</p>
+                    <p className="text-[8px] text-slate-500 uppercase mt-1">{e.municipio}</p>
                   </div>
                 ))}
               </div>
             </div>
           </aside>
 
-          {/* Área de Visualización (Mapa y Gráficas) */}
+          {/* COLUMNA DERECHA: MAPA (Superior) + ANALYTICS DIVIDIDO (Inferior) */}
           <div className="col-span-9 grid grid-rows-12 gap-3 min-h-0">
-            <div className="row-span-7 bg-[#0f172a] border border-slate-800 rounded-2xl overflow-hidden relative shadow-2xl">
+            <div className="row-span-6 bg-[#0f172a] border border-slate-800 rounded-xl overflow-hidden relative shadow-2xl">
+              <div className="absolute top-2 left-2 z-[1000] bg-slate-900/90 backdrop-blur-sm p-1.5 rounded border border-slate-700">
+                <p className="text-[8px] font-bold text-white flex items-center gap-1 uppercase tracking-tighter">
+                  <MapPin size={10} className="text-red-500" /> Centro de Operaciones Córdoba-Antioquia
+                </p>
+              </div>
               <SecurityMap datos={eventosFiltrados} />
             </div>
-            <div className="row-span-5 bg-[#0f172a] border border-slate-800 rounded-2xl p-4 overflow-hidden shadow-2xl">
+
+            {/* Analytics dividido internamente */}
+            <div className="row-span-6 bg-[#0f172a] border border-slate-800 rounded-xl p-3 shadow-xl overflow-hidden">
               <Analytics datos={eventosFiltrados} />
             </div>
           </div>
+
         </div>
       )}
     </main>
   );
 }
-// Fix despliegue.

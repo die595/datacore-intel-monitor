@@ -125,4 +125,5 @@ export default function Analytics({ datos }: AnalyticsProps) {
 
   </div>
 );
+
 }
