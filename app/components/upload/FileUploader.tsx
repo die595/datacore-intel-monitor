@@ -1,6 +1,7 @@
 "use client";
 import React from 'react';
-import Papa from 'papaparse';
+// @ts-ignore
+import Papa from 'papaparse'; 
 import { UploadCloud } from 'lucide-react';
 
 // EXPORTAMOS la interfaz actualizada
