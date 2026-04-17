@@ -7,52 +7,44 @@ import { Filter, MapPin, BookOpen, Calendar, List, Lock, Trash2 } from 'lucide-r
 import Slider from 'rc-slider';
 import 'rc-slider/assets/index.css';
 
-// Importación dinámica para evitar errores de SSR en Netlify
+// Importación dinámica del mapa
 const SecurityMap = dynamic(() => import('./components/dashboard/Map'), { 
   ssr: false,
-  loading: () => <div className="h-full w-full bg-slate-900 animate-pulse flex items-center justify-center text-blue-500 font-mono text-[10px]">CARGANDO SISTEMA GEOGRÁFICO...</div>
+  loading: () => <div className="h-full w-full bg-slate-900 animate-pulse flex items-center justify-center text-blue-500 font-mono text-[10px]">INICIALIZANDO SISTEMA GEOGRÁFICO...</div>
 });
 
 export default function Home() {
+  const [hasMounted, setHasMounted] = useState(false);
   const [password, setPassword] = useState("");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [eventos, setEventos] = useState<EventoSeguridad[]>([]);
   const [municipio, setMunicipio] = useState('');
   const [delito, setDelito] = useState('');
 
-  // --- PERSISTENCIA DE DATOS (LocalStorage con Verificación de Cliente) ---
-  
-  // 1. Cargar datos al montar el componente (Solo en el cliente)
+  // 1. Efecto de Montaje Inicial: Evita errores de Hidratación en Netlify
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const datosGuardados = localStorage.getItem('datacore_data');
-      if (datosGuardados) {
-        try {
-          const parsed = JSON.parse(datosGuardados);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setEventos(parsed);
-          }
-        } catch (e) {
-          console.error("Error al recuperar caché:", e);
-          localStorage.removeItem('datacore_data');
-        }
+    setHasMounted(true);
+    const datosGuardados = localStorage.getItem('datacore_data');
+    if (datosGuardados) {
+      try {
+        const parsed = JSON.parse(datosGuardados);
+        if (Array.isArray(parsed)) setEventos(parsed);
+      } catch (e) {
+        console.error("Error recuperando caché", e);
       }
     }
   }, []);
 
-  // 2. Guardar datos cuando cambien los eventos
+  // 2. Guardar automáticamente cuando cambien los eventos
   useEffect(() => {
-    if (typeof window !== "undefined" && eventos.length > 0) {
+    if (hasMounted && eventos.length > 0) {
       localStorage.setItem('datacore_data', JSON.stringify(eventos));
     }
-  }, [eventos]);
+  }, [eventos, hasMounted]);
 
-  // 3. Función para limpiar base de datos
   const limpiarDatos = () => {
     if(confirm("¿Desea eliminar los datos actuales para cargar un nuevo reporte?")) {
-      if (typeof window !== "undefined") {
-        localStorage.removeItem('datacore_data');
-      }
+      localStorage.removeItem('datacore_data');
       setEventos([]);
     }
   };
@@ -84,6 +76,11 @@ export default function Home() {
   const municipiosUnicos = [...new Set(eventos.map(e => e.municipio))].sort();
   const delitosUnicos = [...new Set(eventos.map(e => e.delito))].sort();
 
+  // Si no ha montado en el cliente, mostramos un fondo vacío para evitar el choque de SSR
+  if (!hasMounted) {
+    return <div className="h-screen bg-[#020617]" />;
+  }
+
   // Pantalla de Autenticación
   if (!isAuthenticated) {
     return (
@@ -94,17 +91,17 @@ export default function Home() {
               <Lock className="text-blue-500" size={32} />
             </div>
           </div>
-          <h2 className="text-white font-black uppercase tracking-[0.2em] text-center mb-2 text-xl">Datacore Intel</h2>
+          <h2 className="text-white font-black uppercase tracking-[0.2em] text-center mb-2 text-xl italic">Datacore Intel</h2>
           <p className="text-slate-500 text-[10px] text-center uppercase font-bold mb-8 tracking-widest">Sistema de Análisis Estratégico</p>
           <div className="space-y-4">
             <input 
               type="password" 
               placeholder="••••••••••••"
-              className="w-full bg-[#020617] border border-slate-700 p-3 rounded text-white outline-none focus:border-blue-500 transition-all text-center tracking-widest"
+              className="w-full bg-[#020617] border border-slate-700 p-3 rounded text-white outline-none focus:border-blue-500 transition-all text-center tracking-[0.5em]"
               onChange={(e) => setPassword(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && checkPassword()}
             />
-            <button onClick={checkPassword} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-3 rounded transition-all uppercase text-xs tracking-widest">
+            <button onClick={checkPassword} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-3 rounded transition-all uppercase text-[10px] tracking-widest shadow-lg shadow-blue-900/20">
               Autenticar Sistema
             </button>
           </div>
@@ -113,13 +110,12 @@ export default function Home() {
     );
   }
 
-  // Dashboard Principal
   return (
     <main className="h-screen bg-[#020617] text-slate-200 p-3 overflow-hidden flex flex-col font-sans">
       <header className="flex justify-between items-center h-[5vh] border-b border-slate-800 mb-2 px-2">
         <div className="flex items-center gap-2">
           <BookOpen className="text-blue-500" size={20} />
-          <h1 className="text-lg font-black tracking-tighter text-white uppercase">Datacore Intel</h1>
+          <h1 className="text-lg font-black tracking-tighter text-white uppercase italic">Datacore Intel</h1>
         </div>
         <div className="flex items-center gap-4">
           <button 
@@ -185,7 +181,7 @@ export default function Home() {
             <div className="row-span-6 bg-[#0f172a] border border-slate-800 rounded-xl overflow-hidden relative shadow-2xl">
               <div className="absolute top-2 left-2 z-[1000] bg-slate-900/90 backdrop-blur-sm p-1.5 rounded border border-slate-700">
                 <p className="text-[8px] font-bold text-white flex items-center gap-1 uppercase tracking-tighter">
-                  <MapPin size={10} className="text-red-500" /> Centro de Operaciones Córdoba-Antioquia
+                  <MapPin size={10} className="text-red-500" /> Despliegue Geográfico Córdoba-Antioquia
                 </p>
               </div>
               <SecurityMap datos={eventosFiltrados} />
